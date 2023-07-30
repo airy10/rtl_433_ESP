@@ -77,6 +77,7 @@
     DECL(esic_emt7110)               \
     DECL(esperanza_ews)              \
     DECL(eurochron)                  \
+    DECL(evology_c2_301)             \
     DECL(fineoffset_WH2)             \
     DECL(fineoffset_WH25)            \
     DECL(fineoffset_WH51)            \
@@ -247,7 +248,7 @@
     DECL(x10_sec)                    \
     DECL(yale_hsa)                   \
     /* Add new decoders here. */
-#  define NUMOF_OOK_DEVICES 157
+#  define NUMOF_OOK_DEVICES 158
 #  define NUMOF_FSK_DEVICES 80
 /* Add new decoders here. */
 #else
