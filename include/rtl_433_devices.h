@@ -42,6 +42,7 @@
     DECL(bt_rain)                    \
     DECL(burnhardbbq)                \
     DECL(calibeur_RF104)             \
+    DECL(came_top432)                \
     DECL(cardin)                     \
     DECL(cavius)                     \
     DECL(ced7000)                    \
