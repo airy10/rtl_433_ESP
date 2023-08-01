@@ -241,6 +241,8 @@ void rtlSetup() {
       memcpy(&cfg->devices[154], &X10_RF, sizeof(r_device));
       memcpy(&cfg->devices[155], &x10_sec, sizeof(r_device));
       memcpy(&cfg->devices[156], &yale_hsa, sizeof(r_device));
+      memcpy(&cfg->devices[157], &came_top432, sizeof(r_device));
+      memcpy(&cfg->devices[158], &evology_c2_301, sizeof(r_device));
     } else {
       memcpy(&cfg->devices[0], &ambientweather_wh31e, sizeof(r_device));
       memcpy(&cfg->devices[1], &ant_antplus, sizeof(r_device));
