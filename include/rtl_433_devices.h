@@ -249,7 +249,7 @@
     DECL(x10_sec)                    \
     DECL(yale_hsa)                   \
     /* Add new decoders here. */
-#  define NUMOF_OOK_DEVICES 158
+#  define NUMOF_OOK_DEVICES 160
 #  define NUMOF_FSK_DEVICES 80
 /* Add new decoders here. */
 #else
