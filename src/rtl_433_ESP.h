@@ -64,9 +64,19 @@
 #  define RSSI_SAMPLES 50000
 #endif
 
+// Number of RSSI samples collected before enabling reception at startup
+#ifndef RSSI_INITIAL_SAMPLES
+#  define RSSI_INITIAL_SAMPLES 1000
+#endif
+
 //  Amount to add to average RSSI to determine if a signal is present
 #ifndef RSSI_THRESHOLD
 #  define RSSI_THRESHOLD 9
+#endif
+
+// CC1101 AGCCTRL2 value. Weak OOK transmitters may benefit from 0x03.
+#ifndef CC1101_AGCCTRL2
+#  define CC1101_AGCCTRL2 0xC7
 #endif
 
 // Enable setting of RSSI Signal threshold based on backgroup signal level
@@ -88,12 +98,25 @@
 
 // signals shorter than this are ignored in interrupt handler
 
+// Overridable from build flags. Defaults are unchanged; only the guards are new.
+//
+// Without a guard the header's #define wins over any -D on the command line, so
+// a protocol whose symbol period or frame duration falls below the defaults
+// cannot be received without editing the library.
 #if OOK_MODULATION
-#  define MINIMUM_PULSE_LENGTH  50
-#  define MINIMUM_SIGNAL_LENGTH 40000
+#  ifndef MINIMUM_PULSE_LENGTH
+#    define MINIMUM_PULSE_LENGTH 50
+#  endif
+#  ifndef MINIMUM_SIGNAL_LENGTH
+#    define MINIMUM_SIGNAL_LENGTH 40000
+#  endif
 #else
-#  define MINIMUM_PULSE_LENGTH  30
-#  define MINIMUM_SIGNAL_LENGTH 500
+#  ifndef MINIMUM_PULSE_LENGTH
+#    define MINIMUM_PULSE_LENGTH 30
+#  endif
+#  ifndef MINIMUM_SIGNAL_LENGTH
+#    define MINIMUM_SIGNAL_LENGTH 500
+#  endif
 #endif
 
 // SX127X OOK Reception Floor
@@ -226,6 +249,9 @@
  * message - JSON formatted message from device
  */
 typedef void (*rtl_433_ESPCallBack)(char* message);
+typedef void (*rtl_433_raw_pulse_cb)(const int* pulse_us, const int* gap_us,
+                                     unsigned int num_pulses,
+                                     unsigned long duration_us, int rssi);
 
 typedef std::function<void(const uint16_t* pulses, size_t length)>
     PulseTrainCallBack;
@@ -256,6 +282,12 @@ public:
    */
   void setCallback(rtl_433_ESPCallBack callback, char* messageBuffer,
                    int bufferSize);
+
+  /**
+   * Set callback to receive raw pulse train data for each captured signal.
+   * Pointers are valid only during callback execution.
+   */
+  void setRawPulsesCallback(rtl_433_raw_pulse_cb callback);
 
   /**
    * Set minimum RSSI value for receiver
