@@ -1151,7 +1151,12 @@ void rtl_433_ESP::getModuleStatus() {
  * Functions used only during testing
  *
  */
-#if defined(setBitrate) || defined(setFreqDev) || defined(setRxBW)
+#if defined(setBitrate) || defined(setFreqDev) || defined(setRxBW) || \
+    defined(CC1101_OOK_TUNING)
+int16_t rtl_433_ESP::setFrequency(float value) {
+  return radio.setFrequency(value);
+}
+
 int16_t rtl_433_ESP::setFrequencyDeviation(float value) {
   return radio.setFrequencyDeviation(value);
 }
@@ -1171,4 +1176,15 @@ int16_t rtl_433_ESP::setBitRate(float value) {
 int16_t rtl_433_ESP::setRxBandwidth(float value) {
   return radio.setRxBandwidth(value);
 }
+
+#  if defined(RF_CC1101)
+int16_t rtl_433_ESP::setCC1101Register(uint8_t address, uint8_t value) {
+  radio.SPIsendCommand(RADIOLIB_CC1101_CMD_IDLE);
+  return radio.SPIsetRegValue(address, value);
+}
+
+uint8_t rtl_433_ESP::getCC1101Register(uint8_t address) {
+  return radio.SPIreadRegister(address);
+}
+#  endif
 #endif

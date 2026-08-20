@@ -366,11 +366,17 @@ public:
   /**
    * Functions used during testing
    */
-#if defined(setBitrate) || defined(setFreqDev) || defined(setRxBW)
+#if defined(setBitrate) || defined(setFreqDev) || defined(setRxBW) || \
+    defined(CC1101_OOK_TUNING)
+  int16_t setFrequency(float);
   int16_t setFrequencyDeviation(float);
   int16_t setBitRate(float);
   int16_t setRxBandwidth(float);
   int16_t receiveDirect();
+#  if defined(RF_CC1101)
+  int16_t setCC1101Register(uint8_t address, uint8_t value);
+  uint8_t getCC1101Register(uint8_t address);
+#  endif
 #endif
 
   /**
