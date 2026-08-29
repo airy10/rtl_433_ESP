@@ -53,7 +53,7 @@
 
 /*----------------------------- rtl_433_ESP Internals -----------------------------*/
 
-int rtlVerbose = 0;
+int rtlVerbose = 2;
 
 r_cfg_t g_cfg; // Global config object
 
