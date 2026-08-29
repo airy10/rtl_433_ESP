@@ -1,194 +1,211 @@
 /** @file
     Decode CAME remote control TOP-432EV, TOP-432NA, TOP-432EE.
-    This remote control is used for garage door and sliding gate. It transmits on 433.92 MHz (as it is written on the case), built since 2006.
 
-    It works with CAME radio receiver cards "AF43S", capable of handling 4096 codes. CAME is an italian company. Theses remote controls are mainly sold in europ (France, Italy, Belgium). https://www.came.com and https://www.came-europe.com .
+    This remote control is used for garage doors and sliding gates. It
+    transmits on 433.92 MHz (as written on the case), built since 2006.
 
-    This decoder is based on new_template.c
+    It works with CAME radio receiver cards "AF43S", capable of handling
+    4096 codes. CAME is an Italian company. These remote controls are mainly
+    sold in Europe (France, Italy, Belgium). https://www.came.com
 
-    Copyright (C) 2016 Benjamin Larsson
+    Protocol analysis and reference rtl_433 flex conf by J. Forestier (2020),
+    see rtl_433 conf/CAME-TOP432.conf and
+    https://github.com/psa-jforestier/rtl_433_tests/tree/master/tests/Came/TOP432
+
+    Copyright (C) 2020 J. Forestier
+    Copyright (C) 2026 Airy André
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
     the Free Software Foundation; either version 2 of the License, or
     (at your option) any later version.
- */
-
-/*
-    Use this as a starting point for a new decoder.
-
-    Keep the Doxygen (slash-star-star) comment above to document the file and copyright.
-
-    Keep the Doxygen (slash-star-star) comment below to describe the decoder.
-    See http://www.doxygen.nl/manual/markdown.html for the formating options.
-
-    Remove all other multiline (slash-star) comments.
-    Use single-line (slash-slash) comments to annontate important lines if needed.
 */
 
 /**
-(this is a markdown formatted section to describe the decoder)
-(describe the modulation, timing, and transmission, e.g.)
-The device uses PPM encoding,
-- 0 is encoded as 320 us gap and 640 us pulse,
-- 1 is encoded as 640 us gap and 320 us pulsep.
-The device sends a 4 times the packet when a button on the remote control is pressed.
-A transmission starts with a 320 us pulse. At the end of the packet, there is 36 periods of 320us between messages (11520us)
+CAME TOP-432 remote control.
+
+The device uses PWM encoding:
+- 0 is encoded as a 640 us pulse and a 320 us gap,
+- 1 is encoded as a 320 us pulse and a 640 us gap.
+
+A transmission starts with a 320 us start pulse, then the 12 data bits are
+sent MSB first. Each packet is repeated 4 times, separated by a minimum of
+36 periods of 320 us (11520 us). There is no CRC, no parity and no preamble:
+the leading start pulse is the only framing.
+
+Since the pulse width carries the bit value, the demodulated row is the start
+pulse (a short pulse, read as a '1' bit) followed by the 12-bit code, i.e.
+13 bits in total. Only rows of exactly 13 bits starting with the start bit
+are accepted.
+
+Because there is no MIC, the only redundancy is the 4x repetition of every
+packet. A single 13-bit row is far too weak a signature to accept on its own
+(12 unknown bits, any noise burst or bit slip can synthesize one), so this
+decoder requires the repeats to agree: reset_limit is kept above the
+inter-packet gap so one button press arrives as one bitbuffer holding the
+repeats as rows, and a code is emitted only when at least
+CAME_TOP432_MIN_REPEATS rows carry the same value. The result is one message
+per press, not one per repeat.
 
 Diagram :
           |        <---> logical 0          <---> logical 1                     <-- 11520us -->
           |       _   __    _   __   __   __    _    _    _   __   __    _    _                 _
 Pulse/gap | _____| |_|  |__| |_|  |_|  |_|  |__| |__| |__| |_|  |_|  |__| |__| |_____(..)______| |
-          +------------------------------------------------------------------------------   
-bits              ~~ : start bit (320us)
+          +------------------------------------------------------------------------------
+bits              ~~ : start bit (320 us)
                     |  0| 1  |  0 |  0 |  0 |  1 |  1 |  1 |  0 |  0 |  1 |  1 |
                     |        0x4       |       0x7         |       0x3         |
 
-Data layout:
-    ccc
-- c : 4-bit data
-
-There is no CRC, no parity, no preamble (only the start pulse indicate the begining of packet)
+Data layout (13 bits):
+    S cccccccccccc
+- S : start bit (short 320 us pulse), always 1
+- c : 12-bit code, identifies the remote/system and the pressed button
 */
+
 #include "decoder.h"
 
-#define CAMETOP432_BITLEN      13
+#define CAME_TOP432_BITLEN      13 // start bit + 12 data bits
+#define CAME_TOP432_MIN_REPEATS 3  // of the 4 transmitted packets must agree
 
 static int came_top432_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 {
     data_t *data;
-    int r; // a row index
-    uint8_t *b; // bits of a row
-    int16_t code;
-    
-    if (decoder->verbose > 1) {
-        bitbuffer_print(bitbuffer);
-    }
+    int events = 0;
 
-    for (r = 0; r < bitbuffer->num_rows; ++r) {
-        b = bitbuffer->bb[r];
+    // Collect the valid rows (13 bits, start bit set) and their codes.
+    // A bitbuffer never holds more than a handful of rows for this protocol
+    // (the 4 repeats of one press), so the O(n^2) vote below is trivial.
+    int codes[BITBUF_ROWS];
+    int num_codes = 0;
 
-        /*
-         * Validate message and reject invalid messages as
-         * early as possible before attempting to parse data.
-         *
-         * Check "message envelope"
-         * - valid message length (use a minimum length to account
-         *   for stray bits appended or prepended by the demod)
-         * - valid preamble/device type/fixed bits if any
-         * - Data integrity checks (CRC/Checksum/Parity)
-         */
-
-        if (bitbuffer->bits_per_row[r] < CAMETOP432_BITLEN) {
-            if (decoder->verbose > 1) {
-                fprintf(stderr, "%s: bitbuffer len received %d, expected : %d\n", __func__, bitbuffer->bits_per_row[r], CAMETOP432_BITLEN);
-            }
-            return DECODE_ABORT_EARLY;
+    for (int r = 0; r < bitbuffer->num_rows; ++r) {
+        if (bitbuffer->bits_per_row[r] != CAME_TOP432_BITLEN) {
+            continue; // not a CAME packet (no preamble, length is the only framing)
         }
-        // no preamble
-        // no crc
-        // no checksum
-        // no parity
+
+        uint8_t *b = bitbuffer->bb[r];
+
+        // The first (short) pulse of every packet demodulates to the start bit
+        if (!(b[0] & 0x80)) {
+            decoder_logf(decoder, 2, __func__, "Row %d: missing start bit", r);
+            continue;
+        }
+
+        // 12-bit code, MSB first: bits 1..12 of the row
+        int code = ((b[0] & 0x7f) << 5) | (b[1] >> 3);
+
+        // No MIC available, at least reject the degenerate all-zero/all-ones codes
+        if (code == 0x000 || code == 0xfff) {
+            decoder_logf(decoder, 2, __func__, "Row %d: degenerate code 0x%03x", r, code);
+            continue;
+        }
+
+        if (num_codes < BITBUF_ROWS) {
+            codes[num_codes++] = code;
+        }
     }
 
-    // packet is not repeated
-    b = bitbuffer->bb[0];
-
-    if (b[0] == 0 && b[1] == 0) {
-            if (decoder->verbose > 1) {
-                fprintf(stderr, "%s: all zero ignored", __func__);
+    // Require the packet repeats to agree before trusting a code: emit each
+    // code at most once per transmission, and only when at least
+    // CAME_TOP432_MIN_REPEATS of the (up to 4) packets carry it. A lone
+    // valid-looking row from noise or another device is discarded here.
+    for (int i = 0; i < num_codes; ++i) {
+        int votes = 0;
+        for (int j = 0; j < num_codes; ++j) {
+            if (codes[j] == codes[i]) {
+                votes++;
             }
-            return DECODE_ABORT_EARLY;
-    }
-    if (b[0] == 0xff && b[1] == 0xff) {
-            if (decoder->verbose > 1) {
-                fprintf(stderr, "%s: all one ignored", __func__);
+        }
+        if (votes < CAME_TOP432_MIN_REPEATS) {
+            decoder_logf(decoder, 2, __func__, "Code 0x%03x seen %d time(s), need %d agreeing repeats",
+                    codes[i], votes, CAME_TOP432_MIN_REPEATS);
+            continue;
+        }
+
+        // Emit once per code per transmission, not once per repeat
+        int emitted = 0;
+        for (int j = 0; j < i; ++j) {
+            if (codes[j] == codes[i]) {
+                emitted = 1;
+                break;
             }
-            return DECODE_ABORT_EARLY;
+        }
+        if (emitted) {
+            continue;
+        }
+
+        // The 12-bit code is opaque: it is the ONLY identity this protocol
+        // has. Two independent remotes prove there is no fixed id/button
+        // bit split:
+        //
+        //   J. Forestier's captures (Button1 0x473 / Button2 0x873):
+        //     buttons differ in the TOP 2 bits, share the low 10
+        //   Live field remote (button 1 0x5CE / button 2 0x5CD):
+        //     buttons differ in the LOW 2 bits, share the top 10
+        //
+        // (Forestier's flex conf used OOK_PPM, which reads bits from the
+        // gaps: PPM and PWM rows are exact bit COMPLEMENTS of each other --
+        // his PPM readings 0xb8c/0x78c invert to 0x473/0x873, matching this
+        // PWM decoder. A complementary read shifts WHICH bits look "common"
+        // vs "differing", which is why the two observations disagree.)
+        //
+        // So publish the full code as the device identity ("id") and let
+        // each code be its own Home Assistant device: rtl_433_mqtt_hass.py
+        // builds device_id from the "id" field and creates a
+        // device_automation button trigger per device from the "button"
+        // field, so every code gets its own trigger and automations can
+        // tell the buttons apart. "button" mirrors the code (its value is
+        // not read by the trigger, but a constant would be ambiguous for
+        // value-matching consumers). "code" repeats the value in hex for
+        // logs and OpenMQTTGateway-style JSON consumers.
+        int const code = codes[i];
+
+        /* clang-format off */
+        data = data_make(
+                "model",    "Model",       DATA_STRING, "CAME-TOP432",
+                "id",       "Code",            DATA_INT,    code,
+                "button",   "Button",     DATA_INT,    code,
+                "code",     "Code (hex)", DATA_FORMAT, "0x%03x", DATA_INT, code,
+                NULL);
+        /* clang-format on */
+
+        decoder_output_data(decoder, data);
+        events++;
     }
 
-
-    // reconstruct the 12 bits code
-    code = (b[0] << 4) | (b[1]>>4);
-    if ((code & 0x800) == 0) {
-       if (decoder->verbose > 1) {
-                fprintf(stderr, "%s: bad preamble", __func__);
-       }
-       return DECODE_ABORT_EARLY;
-    }
-    int button_code = (code<<1) & 0xFFF;
-
-    /* clang-format off */
-    data = data_make(
-            "brand",    "", DATA_STRING,   "CAME",
-            "model",    "", DATA_STRING,   "TOP432",
-            "button_code",     "", DATA_INT,      button_code,
-            "button",     "", DATA_INT,      button_code,
-            "code",     "Raw Code", DATA_INT,      code,
-	    "cmd",          "Command",      DATA_INT, code,
-            "id",     "", DATA_INT,      button_code,
-            "code_hex", "", DATA_FORMAT,   "0x%03x", DATA_INT, code,
-	    "event",        "Event",                 DATA_INT, 1,
-            NULL);
-    /* clang-format on */
-    decoder_output_data(decoder, data);
-
-    // Return 1 if message successfully decoded
-    return 1;
+    return events ? events : DECODE_ABORT_LENGTH;
 }
 
-/*
- * List of fields that may appear in the output
- *
- * Used to determine what fields will be output in what
- * order for this device when using -F csv.
- *
- */
-static const char *output_fields[] = {
-        "brand",
+static char const *const output_fields[] = {
         "model",
         "id",
-        "button_code",
         "button",
-        "cmd",
-        "event",
         "code",
-        "code_hex",
-        "button",
         NULL,
 };
 
 /*
- * r_device - registers device/callback. see rtl_433_devices.h
+ * Timings are per the device documentation / rtl_433_tests captures:
+ * 320 us start pulse, 320/640 us PWM pulses, at least 11520 us between the
+ * 4 packet repeats (real captures show ~14.9 ms).
  *
- * Timings:
- *
- * short, long, and reset - specify pulse/period timings in [us].
- *     These timings will determine if the received pulses
- *     match, so your callback will fire after demodulation.
- *
- * Modulation:
- *
- * The function used to turn the received signal into bits.
- * See:
- * - pulse_demod.h for descriptions
- * - r_device.h for the list of defined names
- *
- * This device is disabled and hidden, it can not be enabled.
- *
- * To enable your device, add it to the list in include/rtl_433_devices.h
- * and to src/CMakeLists.txt and src/Makefile.am or run ./maintainer_update.py
- *
+ * reset_limit (30000 us) is deliberately LONGER than the inter-packet gap so
+ * the 4 repeats of one press are accumulated into a single bitbuffer (one row
+ * per repeat) and the decoder can require them to agree. The decoder is
+ * stateless -- rtl_433 clears the bitbuffer after every decode call -- so a
+ * generous reset_limit only affects grouping inside a train, never across
+ * trains. gap_limit (830 us) still splits rows should repeats arrive inside
+ * one buffer with sub-reset gaps.
  */
 r_device came_top432 = {
-        .name        = "Came TOP432 remote control",
-        .modulation  = OOK_PULSE_PPM,
-        .short_width = 320,  // 
-        .long_width  = 640,  // 
-        .sync_width  = 320,
-        //.gap_limit   = 0,  // dont know how to find this value
-        .reset_limit = 36*320, // a bit longer than packet gap
+        .name        = "CAME TOP432 remote control",
+        .modulation  = OOK_PULSE_PWM,
+        .short_width = 320,   // start pulse and '1' pulse
+        .long_width  = 640,   // '0' pulse
+        .gap_limit   = 830,   // larger than 640 us pulse + 320 us gap
+        .reset_limit = 30000, // above the ~11.5-14.9 ms inter-packet gap: keep the 4 repeats together
+        .tolerance   = 160,   // +/- 50% of the short pulse
         .decode_fn   = &came_top432_decode,
-        .disabled    = 0, // disabled and hidden, use 0 if there is a MIC, 1 otherwise
+        .disabled    = 0,
         .fields      = output_fields,
 };
