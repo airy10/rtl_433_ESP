@@ -59,8 +59,9 @@ unsigned extract_nibbles_4b1s(uint8_t const *message, unsigned offset_bits, unsi
     while (num_bits >= 5) {
         uint16_t bits = (message[offset_bits / 8] << 8) | message[(offset_bits / 8) + 1];
         bits >>= 11 - (offset_bits % 8); // align 5 bits to LSB
-        if ((bits & 1) != 1)
+        if ((bits & 1) != 1) {
             break; // stuff-bit error
+        }
         *dst++ = (bits >> 1) & 0xf;
         ret += 1;
         offset_bits += 5;
@@ -70,7 +71,7 @@ unsigned extract_nibbles_4b1s(uint8_t const *message, unsigned offset_bits, unsi
     return ret;
 }
 
-unsigned extract_bytes_uart(uint8_t const *message, unsigned offset_bits, unsigned num_bits, uint8_t *dst)
+unsigned extract_bytes_uart_8n1(uint8_t const *message, unsigned offset_bits, unsigned num_bits, uint8_t *dst)
 {
     unsigned ret = 0;
 
@@ -85,10 +86,12 @@ unsigned extract_bytes_uart(uint8_t const *message, unsigned offset_bits, unsign
         offset_bits += 8;
         int stopb = message[offset_bits / 8] >> (7 - (offset_bits % 8));
         offset_bits += 1;
-        if ((startb & 1) != 0)
+        if ((startb & 1) != 0) {
             break; // start-bit error
-        if ((stopb & 1) != 1)
+        }
+        if ((stopb & 1) != 1) {
             break; // stop-bit error
+        }
         *dst++ = reverse8(datab & 0xff);
         ret += 1;
         num_bits -= 10;
@@ -97,7 +100,51 @@ unsigned extract_bytes_uart(uint8_t const *message, unsigned offset_bits, unsign
     return ret;
 }
 
-unsigned extract_bytes_uart_parity(uint8_t const *message, unsigned offset_bits, unsigned num_bits, uint8_t *dst)
+unsigned extract_bytes_uart_8n2(uint8_t const *message, unsigned offset_bits, unsigned num_bits, uint8_t *dst)
+{
+    unsigned ret = 0;
+
+    // skip until first start bit
+    while (num_bits > 11) {
+        int startb = message[offset_bits / 8] >> (7 - (offset_bits % 8));
+        if ((startb & 1) == 0) {
+            break; // start bit found
+        }
+        offset_bits += 1;
+        num_bits -= 1;
+    }
+    // get framed bytes
+    while (num_bits >= 11) {
+        int startb = message[offset_bits / 8] >> (7 - (offset_bits % 8));
+        offset_bits += 1;
+        int datab = message[offset_bits / 8];
+        if (offset_bits % 8) {
+            datab = (message[offset_bits / 8] << 8) | message[offset_bits / 8 + 1];
+            datab >>= 8 - (offset_bits % 8);
+        }
+        offset_bits += 8;
+        int stopb1 = message[offset_bits / 8] >> (7 - (offset_bits % 8));
+        offset_bits += 1;
+        int stopb2 = message[offset_bits / 8] >> (7 - (offset_bits % 8));
+        offset_bits += 1;
+        if ((startb & 1) != 0) {
+            break; // start-bit error
+        }
+        if ((stopb1 & 1) != 1) {
+            break; // stop-bit error
+        }
+        if ((stopb2 & 1) != 1) {
+            break; // stop-bit error
+        }
+        *dst++ = reverse8(datab & 0xff);
+        ret += 1;
+        num_bits -= 11;
+    }
+
+    return ret;
+}
+
+unsigned extract_bytes_uart_8o1(uint8_t const *message, unsigned offset_bits, unsigned num_bits, uint8_t *dst)
 {
     unsigned ret = 0;
 
@@ -115,12 +162,15 @@ unsigned extract_bytes_uart_parity(uint8_t const *message, unsigned offset_bits,
         int stopb = message[offset_bits / 8] >> (7 - (offset_bits % 8));
         offset_bits += 1;
         int data_parity = parity8(datab);
-        if ((startb & 1) != 1)
+        if ((startb & 1) != 1) {
             break; // start-bit error
-        if ((parityb & 1) != data_parity)
+        }
+        if ((parityb & 1) != data_parity) {
             break; // parity-bit error
-        if ((stopb & 1) != 0)
+        }
+        if ((stopb & 1) != 0) {
             break; // stop-bit error
+        }
         *dst++ = (datab & 0xff);
         ret += 1;
         num_bits -= 11;
@@ -303,20 +353,52 @@ uint16_t crc16(uint8_t const message[], unsigned nBytes, uint16_t polynomial, ui
 uint8_t lfsr_digest8(uint8_t const message[], unsigned bytes, uint8_t gen, uint8_t key)
 {
     uint8_t sum = 0;
+    // Process message from first byte to last byte
     for (unsigned k = 0; k < bytes; ++k) {
         uint8_t data = message[k];
+        // Process individual bits of each byte (MSB to LSB)
         for (int i = 7; i >= 0; --i) {
-            // fprintf(stderr, "key is %02x\n", key);
+            // fprintf(stderr, "key at %d.%d : %02x\n", k, i, key);
             // XOR key into sum if data bit is set
-            if ((data >> i) & 1)
+            if ((data >> i) & 1) {
                 sum ^= key;
+            }
 
             // roll the key right (actually the lsb is dropped here)
             // and apply the gen (needs to include the dropped lsb as msb)
-            if (key & 1)
+            if (key & 1) {
                 key = (key >> 1) ^ gen;
-            else
+            }
+            else {
                 key = (key >> 1);
+            }
+        }
+    }
+    return sum;
+}
+
+uint8_t lfsr_digest8_reverse(uint8_t const *message, int bytes, uint8_t gen, uint8_t key)
+{
+    uint8_t sum = 0;
+    // Process message from last byte to first byte (reflected)
+    for (int k = bytes - 1; k >= 0; --k) {
+        uint8_t data = message[k];
+        // Process individual bits of each byte (MSB to LSB)
+        for (int i = 7; i >= 0; --i) {
+            // fprintf(stderr, "key at %d.%d : %02x\n", k, i, key);
+            // XOR key into sum if data bit is set
+            if ((data >> i) & 1) {
+                sum ^= key;
+            }
+
+            // roll the key right (actually the lsb is dropped here)
+            // and apply the gen (needs to include the dropped lsb as msb)
+            if (key & 1) {
+                key = (key >> 1) ^ gen;
+            }
+            else {
+                key = (key >> 1);
+            }
         }
     }
     return sum;
@@ -330,18 +412,20 @@ uint8_t lfsr_digest8_reflect(uint8_t const message[], int bytes, uint8_t gen, ui
         uint8_t data = message[k];
         // Process individual bits of each byte (reflected)
         for (int i = 0; i < 8; ++i) {
-            // fprintf(stderr, "key is %02x\n", key);
+            // fprintf(stderr, "key at %d.%d : %02x\n", k, i, key);
             // XOR key into sum if data bit is set
             if ((data >> i) & 1) {
                 sum ^= key;
             }
 
-            // roll the key left (actually the lsb is dropped here)
-            // and apply the gen (needs to include the dropped lsb as msb)
-            if (key & 0x80)
+            // roll the key left (actually the msb is dropped here)
+            // and apply the gen (needs to include the dropped msb as lsb)
+            if (key & 0x80) {
                 key = (key << 1) ^ gen;
-            else
+            }
+            else {
                 key = (key << 1);
+            }
         }
     }
     return sum;
@@ -355,18 +439,69 @@ uint16_t lfsr_digest16(uint8_t const message[], unsigned bytes, uint16_t gen, ui
         for (int i = 7; i >= 0; --i) {
             // fprintf(stderr, "key at bit %d : %04x\n", i, key);
             // if data bit is set then xor with key
-            if ((data >> i) & 1)
+            if ((data >> i) & 1) {
                 sum ^= key;
+            }
 
             // roll the key right (actually the lsb is dropped here)
             // and apply the gen (needs to include the dropped lsb as msb)
-            if (key & 1)
+            if (key & 1) {
                 key = (key >> 1) ^ gen;
-            else
+            }
+            else {
                 key = (key >> 1);
+            }
         }
     }
     return sum;
+}
+
+// The CCITT data whitening process is built around a 9-bit Linear Feedback Shift Register (LFSR).
+// The LFSR polynomial is the same polynomial as for IBM data whitening (x9 + x5 + 1).
+// The initial value of the data whitening key is set to all ones, 0x1FF.
+// s.a. https://www.nxp.com/docs/en/application-note/AN5070.pdf s.5.2
+void ccitt_whitening(uint8_t *buffer, unsigned buffer_size)
+{
+    uint8_t key_msb = 0x01;
+    uint8_t key_lsb = 0xff;
+
+    for (unsigned buffer_pos = 0; buffer_pos < buffer_size; buffer_pos++) {
+        uint8_t reflected_key_lsb;
+        reflected_key_lsb = (key_lsb & 0xf0) >> 4 | (key_lsb & 0x0f) << 4;
+        reflected_key_lsb = (reflected_key_lsb & 0xcc) >> 2 | (reflected_key_lsb & 0x33) << 2;
+        reflected_key_lsb = (reflected_key_lsb & 0xaa) >> 1 | (reflected_key_lsb & 0x55) << 1;
+
+        buffer[buffer_pos] ^= reflected_key_lsb;
+
+        for (uint8_t rol_counter = 0; rol_counter < 8; rol_counter++) {
+            uint8_t key_msb_previous;
+            key_msb_previous = key_msb;
+            key_msb          = (key_lsb & 0x01) ^ ((key_lsb >> 5) & 0x01);
+            key_lsb          = ((key_msb_previous << 7) & 0x80) | ((key_lsb >> 1) & 0xff);
+        }
+    }
+}
+
+// The IBM data whitening process is built around a 9-bit Linear Feedback Shift Register (LFSR).
+// CCITT data whitening processes data packets byte-per-byte, whereas IBM data
+// whitening processes the data packet bit-per-bit
+// Same, the initial value of the data whitening key is set to all ones, 0x1FF.
+// s.a. https://www.nxp.com/docs/en/application-note/AN5070.pdf s.5.1
+
+void ibm_whitening(uint8_t *buffer, unsigned buffer_size)
+{
+    uint8_t key_msb = 0x01;
+    uint8_t key_lsb = 0xff;
+    uint8_t key_msb_previous = 0;
+
+    for (unsigned buffer_pos = 0; buffer_pos < buffer_size; buffer_pos++) {
+        buffer[buffer_pos] ^= key_lsb;
+        for (uint8_t rol_counter = 0; rol_counter < 8; rol_counter++) {
+            key_msb_previous = key_msb;
+            key_msb          = (key_lsb & 0x01) ^ ((key_lsb >> 5) & 0x01);
+            key_lsb          = ((key_lsb >> 1) & 0xff) | ((key_msb_previous << 7) & 0x80);
+        }
+    }
 }
 
 /*
@@ -377,10 +512,12 @@ void lfsr_keys_fwd16(int rounds, uint16_t gen, uint16_t key)
 
         // roll the key right (actually the lsb is dropped here)
         // and apply the gen (needs to include the dropped lsb as msb)
-        if (key & 1)
+        if (key & 1) {
             key = (key >> 1) ^ gen;
-        else
+        }
+        else {
             key = (key >> 1);
+        }
     }
 }
 
@@ -391,10 +528,12 @@ void lfsr_keys_rwd16(int rounds, uint16_t gen, uint16_t key)
 
         // roll the key left (actually the msb is dropped here)
         // and apply the gen (needs to include the dropped msb as lsb)
-        if (key & (1 << 15))
+        if (key & (1 << 15)) {
             key = (key << 1) ^ gen;
-        else
+        }
+        else {
             key = (key << 1);
+        }
     }
 }
 */
@@ -454,6 +593,23 @@ int add_nibbles(uint8_t const message[], unsigned num_bytes)
             fprintf(stderr, "FAIL: %d <> %d\n", (a), (b)); \
         } \
     } while (0)
+#define ASSERT_MATCH(a, b, n) \
+    do { \
+        if (memcmp(a, b, n) == 0) \
+            ++passed; \
+        else { \
+            ++failed; \
+            fprintf(stderr, "FAIL:"); \
+            for (size_t i = 0; i < n; i++) { \
+                fprintf(stderr, " %02x", a[i]); \
+            } \
+            fprintf(stderr, "\n   <>"); \
+            for (size_t i = 0; i < n; i++) { \
+                fprintf(stderr, " %02x", b[i]); \
+            } \
+            fprintf(stderr, "\n"); \
+        } \
+    } while (0)
 
 int main(void) {
     unsigned passed = 0;
@@ -476,18 +632,42 @@ int main(void) {
     // y0 xff y1 y0 xcc y1 y0 x80 y1 y0 x40 y1 y0 xc0 y1
     uint8_t uart123[] = {0x07, 0xfd, 0x99, 0x40, 0x48, 0x16, 0x04, 0x00};
 
-    fprintf(stderr, "util::extract_bytes_uart():\n");
-    ASSERT_EQUALS(extract_bytes_uart(uart, 0, 24, bytes), 2);
+    fprintf(stderr, "util::extract_bytes_uart_8n1():\n");
+    ASSERT_EQUALS(extract_bytes_uart_8n1(uart, 0, 24, bytes), 2);
     ASSERT_EQUALS(bytes[0], 0xff);
     ASSERT_EQUALS(bytes[1], 0x33);
 
-    ASSERT_EQUALS(extract_bytes_uart(uart123, 4, 60, bytes), 5);
+    ASSERT_EQUALS(extract_bytes_uart_8n1(uart123, 4, 60, bytes), 5);
     ASSERT_EQUALS(bytes[0], 0xff);
     ASSERT_EQUALS(bytes[1], 0x33);
     ASSERT_EQUALS(bytes[2], 0x01);
     ASSERT_EQUALS(bytes[3], 0x02);
     ASSERT_EQUALS(bytes[4], 0x03);
 
+    // y0 xD1 y11  y0 x11 y11  y0 x4D y11  y0 xEE y11
+    uint8_t uart8n2[] = {0x45, 0xe8, 0x8d, 0x65, 0x9d, 0xf0};
+
+    fprintf(stderr, "util::extract_bytes_uart_8n2():\n");
+    ASSERT_EQUALS(extract_bytes_uart_8n2(uart8n2, 0, 44, bytes), 4);
+    ASSERT_EQUALS(bytes[0], 0xd1);
+    ASSERT_EQUALS(bytes[1], 0x11);
+    ASSERT_EQUALS(bytes[2], 0x4d);
+    ASSERT_EQUALS(bytes[3], 0xee);
+
+    fprintf(stderr, "util::ccitt_whitening():\n");
+    uint8_t buf1[16] = {0};
+    uint8_t chk1[16] = {0xff, 0x87, 0xb8, 0x59, 0xb7, 0xa1, 0xcc, 0x24, 0x57, 0x5e, 0x4b, 0x9c, 0x0e, 0xe9, 0xea, 0x50};
+    ccitt_whitening(buf1, sizeof(buf1)) ;
+    ASSERT_MATCH(buf1, chk1, sizeof(buf1));
+
+    fprintf(stderr, "util::ibm_whitening():\n");
+    uint8_t buf2[16] = {0};
+    uint8_t chk2[16] = {0xff, 0xe1, 0x1d, 0x9a, 0xed, 0x85, 0x33, 0x24, 0xea, 0x7a, 0xd2, 0x39, 0x70, 0x97, 0x57, 0x0a};
+    ibm_whitening(buf2, sizeof(buf2)) ;
+    ASSERT_MATCH(buf2, chk2, sizeof(buf2));
+
+    // ------------- add test above this line -----------------------------------------------------
+    // Show result of the tests, this line must stay the last line before return failed;
     fprintf(stderr, "util:: test (%u/%u) passed, (%u) failed.\n", passed, passed + failed, failed);
 
     return failed;

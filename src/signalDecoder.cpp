@@ -25,6 +25,8 @@
 
 #include "signalDecoder.h"
 
+#include <atomic>
+
 /*----------------------------- rtl_433_ESP Internals -----------------------------*/
 
 #ifndef rtl_433_Decoder_Stack
@@ -41,8 +43,13 @@
 #  endif
 #endif
 
-#define rtl_433_Decoder_Priority 2
-#define rtl_433_Decoder_Core     1
+#if defined(CONFIG_FREERTOS_UNICORE)
+#  define rtl_433_Decoder_Priority 3
+#  define rtl_433_Decoder_Core     0
+#else
+#  define rtl_433_Decoder_Priority 2
+#  define rtl_433_Decoder_Core     1
+#endif
 
 /*----------------------------- rtl_433_ESP Internals -----------------------------*/
 
@@ -52,6 +59,7 @@ r_cfg_t g_cfg; // Global config object
 
 TaskHandle_t rtl_433_DecoderHandle;
 static QueueHandle_t rtl_433_Queue;
+static std::atomic<rtl_433_raw_pulse_cb> rawPulsesCallback{nullptr};
 
 void rtlSetup() {
   r_cfg_t* cfg = &g_cfg;
@@ -68,12 +76,16 @@ void rtlSetup() {
                 ESP.getFreeHeap());
 #endif
     cfg->conversion_mode = CONVERT_SI; // Default all output to Celsius
+#ifdef MY_DEVICES
+    cfg->num_r_devices = NUMOFDEVICES;
+#else
     if (rtl_433_ESP::ookModulation) {
       cfg->num_r_devices = NUMOF_OOK_DEVICES;
     } else {
       cfg->num_r_devices = NUMOF_FSK_DEVICES;
     }
-    cfg->devices = (r_device*)calloc(cfg->num_r_devices, sizeof(r_device));
+#endif
+    cfg->devices = reinterpret_cast<r_device*>(calloc(cfg->num_r_devices, sizeof(r_device)));
     if (!cfg->devices)
       FATAL_CALLOC("cfg->devices");
 
@@ -85,296 +97,399 @@ void rtlSetup() {
 #ifndef MY_DEVICES
     // This is a generated fragment from tools/update_rtl_433_devices.sh
 
-    int i = 0;
     if (rtl_433_ESP::ookModulation) {
-      //memcpy(&cfg->devices[i++], &abmt, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_rain_896, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_th, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_txr, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_986, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_606, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_00275rm, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_590tx, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &acurite_01185m, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &akhan_100F14, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &alectov1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ambient_weather, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ambientweather_tx8300, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &atech_ws308, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &auriol_4ld5661, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &auriol_aft77b2, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &auriol_afw2a1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &auriol_ahfl, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &auriol_hg02832, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &baldr_rain, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &blyss, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &brennenstuhl_rcs_2044, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &bresser_3ch, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &bt_rain, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &burnhardbbq, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &calibeur_RF104, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &cardin, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &celsia_czc1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &chuango, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &cmr113, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &companion_wtr001, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &cotech_36_7959, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &digitech_xc0324, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &dish_remote_6_3, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &dsc_security, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &dsc_security_ws4945, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ecowitt, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &eurochron_efth800, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &elro_db286a, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &elv_em1000, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &elv_ws2000, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &emos_e6016, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &emos_e6016_rain, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &enocean_erp1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ert_idm, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ert_netidm, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ert_scm, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &esa_energy, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &esperanza_ews, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &eurochron, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fineoffset_WH2, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fineoffset_WH0530, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fineoffset_wh1050, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fineoffset_wh1080, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fordremote, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &fs20, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ft004b, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &funkbus_remote, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &gasmate_ba1008, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &geevon, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &generic_motion, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &generic_remote, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &generic_temperature_sensor, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &govee, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &govee_h5054, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &gt_tmbbq05, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &gt_wt_02, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &gt_wt_03, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &hcs200, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &hideki_ts04, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &honeywell, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &honeywell_wdb, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ht680, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ibis_beacon, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &infactory, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &kw9015b, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &interlogix, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &intertechno, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &jasco, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &kedsum, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &kerui, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &klimalogg, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &lacrossetx, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &lacrosse_tx141x, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &lacrosse_ws7000, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &lacrossews, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &lightwave_rf, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &markisol, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &maverick_et73, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &maverick_et73x, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &mebus433, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &megacode, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &missil_ml0757, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &neptune_r900, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &new_template, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &newkaku, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &nexa, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &nexus, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &nice_flor_s, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &norgo, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &oil_standard_ask, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &opus_xt300, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &oregon_scientific, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &oregon_scientific_sl109h, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &oregon_scientific_v1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &philips_aj3650, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &philips_aj7010, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &proflame2, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &prologue, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &proove, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &quhwa, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &radiohead_ask, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &sensible_living, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &rainpoint, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &regency_fan, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &revolt_nc5462, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &rftech, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &risco_agility, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &rosstech_dcu706, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &rubicson, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &rubicson_48659, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &rubicson_pool_48942, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &s3318p, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &schou_72543_rain, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &schraeder, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &schrader_EG53MA4, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &schrader_SMD3MA4, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &scmplus, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &secplus_v1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &silvercrest, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ss_sensor, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &skylink_motion, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &smoke_gs558, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &solight_te44, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &somfy_rts, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &springfield, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &telldus_ft0385r, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_30_3221, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_drop_303233, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_pool_thermometer, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_twin_plus_303049, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tp11, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tp12, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tx2, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tx2c, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &thermor, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &tpms_eezrv, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &tpms_tyreguard400, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ts_ft002, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ttx201, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &vaillant_vrt340f, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &vauno_en8822c, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &visonic_powercode, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &watts_thermostat, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &waveman, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &wec2103, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &wg_pb12v1, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &ws2032, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &wssensor, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &wt1024, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &wt450, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &X10_RF, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &x10_sec, sizeof(r_device));
-      //memcpy(&cfg->devices[i++], &yale_hsa, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &evology_c2_301, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &came_top432, sizeof(r_device));
-      
+      memcpy(&cfg->devices[0], &abmt, sizeof(r_device));
+      memcpy(&cfg->devices[1], &acurite_rain_896, sizeof(r_device));
+      memcpy(&cfg->devices[2], &acurite_th, sizeof(r_device));
+      memcpy(&cfg->devices[3], &acurite_txr, sizeof(r_device));
+      memcpy(&cfg->devices[4], &acurite_986, sizeof(r_device));
+      memcpy(&cfg->devices[5], &acurite_606, sizeof(r_device));
+      memcpy(&cfg->devices[6], &acurite_00275rm, sizeof(r_device));
+      memcpy(&cfg->devices[7], &acurite_590tx, sizeof(r_device));
+      memcpy(&cfg->devices[8], &acurite_01185m, sizeof(r_device));
+      memcpy(&cfg->devices[9], &akhan_100F14, sizeof(r_device));
+      memcpy(&cfg->devices[10], &alectov1, sizeof(r_device));
+      memcpy(&cfg->devices[11], &ambient_weather, sizeof(r_device));
+      memcpy(&cfg->devices[12], &ambientweather_tx8300, sizeof(r_device));
+      memcpy(&cfg->devices[13], &astrostart_2000, sizeof(r_device));
+      memcpy(&cfg->devices[14], &atech_ws308, sizeof(r_device));
+      memcpy(&cfg->devices[15], &audiovox_pro_oe3b, sizeof(r_device));
+      memcpy(&cfg->devices[16], &auriol_4ld5661, sizeof(r_device));
+      memcpy(&cfg->devices[17], &auriol_aft77b2, sizeof(r_device));
+      memcpy(&cfg->devices[18], &auriol_afw2a1, sizeof(r_device));
+      memcpy(&cfg->devices[19], &auriol_ahfl, sizeof(r_device));
+      memcpy(&cfg->devices[20], &auriol_hg02832, sizeof(r_device));
+      memcpy(&cfg->devices[21], &auriol_hg04641a, sizeof(r_device));
+      memcpy(&cfg->devices[22], &baldr_hcs528arf, sizeof(r_device));
+      memcpy(&cfg->devices[23], &baldr_rain, sizeof(r_device));
+      memcpy(&cfg->devices[24], &baldr_therm, sizeof(r_device));
+      memcpy(&cfg->devices[25], &blyss, sizeof(r_device));
+      memcpy(&cfg->devices[26], &bm5, sizeof(r_device));
+      memcpy(&cfg->devices[27], &brennenstuhl_rcs_2044, sizeof(r_device));
+      memcpy(&cfg->devices[28], &bresser_3ch, sizeof(r_device));
+      memcpy(&cfg->devices[29], &bresser_st1005h, sizeof(r_device));
+      memcpy(&cfg->devices[30], &bt_rain, sizeof(r_device));
+      memcpy(&cfg->devices[31], &burnhardbbq, sizeof(r_device));
+      memcpy(&cfg->devices[32], &calibeur_RF104, sizeof(r_device));
+      memcpy(&cfg->devices[33], &cardin, sizeof(r_device));
+      memcpy(&cfg->devices[34], &celsia_czc1, sizeof(r_device));
+      memcpy(&cfg->devices[35], &chrysler_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[36], &chuango, sizeof(r_device));
+      memcpy(&cfg->devices[37], &cmr113, sizeof(r_device));
+      memcpy(&cfg->devices[38], &code_alarm_frdpc2000_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[39], &companion_wtr001, sizeof(r_device));
+      memcpy(&cfg->devices[40], &compustar_1wg3r, sizeof(r_device));
+      memcpy(&cfg->devices[41], &cotech_36_7900, sizeof(r_device));
+      memcpy(&cfg->devices[42], &cotech_36_7959, sizeof(r_device));
+      memcpy(&cfg->devices[43], &cotech_ft0203, sizeof(r_device));
+      memcpy(&cfg->devices[44], &dickert_pwm, sizeof(r_device));
+      memcpy(&cfg->devices[45], &digitech_xc0324, sizeof(r_device));
+      memcpy(&cfg->devices[46], &dish_remote_6_3, sizeof(r_device));
+      memcpy(&cfg->devices[47], &dsc_security, sizeof(r_device));
+      memcpy(&cfg->devices[48], &dsc_security_ws4945, sizeof(r_device));
+      memcpy(&cfg->devices[49], &ecowitt, sizeof(r_device));
+      memcpy(&cfg->devices[50], &eurochron_efth800, sizeof(r_device));
+      memcpy(&cfg->devices[51], &elro_db286a, sizeof(r_device));
+      memcpy(&cfg->devices[52], &elv_em1000, sizeof(r_device));
+      memcpy(&cfg->devices[53], &elv_ws2000, sizeof(r_device));
+      memcpy(&cfg->devices[54], &emos_e6016, sizeof(r_device));
+      memcpy(&cfg->devices[55], &emos_e6016_rain, sizeof(r_device));
+      memcpy(&cfg->devices[56], &enocean_erp1, sizeof(r_device));
+      memcpy(&cfg->devices[57], &ert_idm, sizeof(r_device));
+      memcpy(&cfg->devices[58], &ert_netidm, sizeof(r_device));
+      memcpy(&cfg->devices[59], &ert_scm, sizeof(r_device));
+      memcpy(&cfg->devices[60], &esa_energy, sizeof(r_device));
+      memcpy(&cfg->devices[61], &esperanza_ews, sizeof(r_device));
+      memcpy(&cfg->devices[62], &esun_en2053, sizeof(r_device));
+      memcpy(&cfg->devices[63], &eurochron, sizeof(r_device));
+      memcpy(&cfg->devices[64], &fineoffset_WH2, sizeof(r_device));
+      memcpy(&cfg->devices[65], &fineoffset_wh5rb, sizeof(r_device));
+      memcpy(&cfg->devices[66], &fineoffset_WH0530, sizeof(r_device));
+      memcpy(&cfg->devices[67], &fineoffset_wh1050, sizeof(r_device));
+      memcpy(&cfg->devices[68], &fineoffset_wh1080, sizeof(r_device));
+      memcpy(&cfg->devices[69], &florabest, sizeof(r_device));
+      memcpy(&cfg->devices[70], &fordremote, sizeof(r_device));
+      memcpy(&cfg->devices[71], &fs20, sizeof(r_device));
+      memcpy(&cfg->devices[72], &ft004b, sizeof(r_device));
+      memcpy(&cfg->devices[73], &funkbus_remote, sizeof(r_device));
+      memcpy(&cfg->devices[74], &gasmate_ba1008, sizeof(r_device));
+      memcpy(&cfg->devices[75], &geevon_tx16, sizeof(r_device));
+      memcpy(&cfg->devices[76], &geevon_tx19, sizeof(r_device));
+      memcpy(&cfg->devices[77], &generic_motion, sizeof(r_device));
+      memcpy(&cfg->devices[78], &generic_remote, sizeof(r_device));
+      memcpy(&cfg->devices[79], &generic_temperature_sensor, sizeof(r_device));
+      memcpy(&cfg->devices[80], &gm_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[81], &govee, sizeof(r_device));
+      memcpy(&cfg->devices[82], &govee_h5054, sizeof(r_device));
+      memcpy(&cfg->devices[83], &grill_thermometer, sizeof(r_device));
+      memcpy(&cfg->devices[84], &gt_tmbbq05, sizeof(r_device));
+      memcpy(&cfg->devices[85], &gt_wt_02, sizeof(r_device));
+      memcpy(&cfg->devices[86], &gt_wt_03, sizeof(r_device));
+      memcpy(&cfg->devices[87], &hcs200, sizeof(r_device));
+      memcpy(&cfg->devices[88], &hcs361_txwak_0_bsel_0, sizeof(r_device));
+      memcpy(&cfg->devices[89], &hcs361_txwak_0_bsel_1, sizeof(r_device));
+      memcpy(&cfg->devices[90], &hcs361_txwak_1_bsel_0, sizeof(r_device));
+      memcpy(&cfg->devices[91], &hcs361_txwak_1_bsel_1, sizeof(r_device));
+      memcpy(&cfg->devices[92], &hcs361_vpwm_1_bsel_0, sizeof(r_device));
+      memcpy(&cfg->devices[93], &hcs361_vpwm_1_bsel_1, sizeof(r_device));
+      memcpy(&cfg->devices[94], &hcs362_pwm, sizeof(r_device));
+      memcpy(&cfg->devices[95], &hcs362_mc, sizeof(r_device));
+      memcpy(&cfg->devices[96], &hideki_ts04, sizeof(r_device));
+      memcpy(&cfg->devices[97], &holman_ws5029pwm_ook, sizeof(r_device));
+      memcpy(&cfg->devices[98], &homelead_hg9901, sizeof(r_device));
+      memcpy(&cfg->devices[99], &honeywell, sizeof(r_device));
+      memcpy(&cfg->devices[100], &honeywell_wdb, sizeof(r_device));
+      memcpy(&cfg->devices[101], &ht680, sizeof(r_device));
+      memcpy(&cfg->devices[102], &ibis_beacon, sizeof(r_device));
+      memcpy(&cfg->devices[103], &infactory, sizeof(r_device));
+      memcpy(&cfg->devices[104], &kw9015b, sizeof(r_device));
+      memcpy(&cfg->devices[105], &interlogix, sizeof(r_device));
+      memcpy(&cfg->devices[106], &intertechno, sizeof(r_device));
+      memcpy(&cfg->devices[107], &jasco, sizeof(r_device));
+      memcpy(&cfg->devices[108], &kedsum, sizeof(r_device));
+      memcpy(&cfg->devices[109], &kerui, sizeof(r_device));
+      memcpy(&cfg->devices[110], &kidde_smoke, sizeof(r_device));
+      memcpy(&cfg->devices[111], &klimalogg, sizeof(r_device));
+      memcpy(&cfg->devices[112], &lacrossetx, sizeof(r_device));
+      memcpy(&cfg->devices[113], &lacrosse_tx141x, sizeof(r_device));
+      memcpy(&cfg->devices[114], &lacrosse_tx22uit_ook, sizeof(r_device));
+      memcpy(&cfg->devices[115], &lacrosse_ws7000, sizeof(r_device));
+      memcpy(&cfg->devices[116], &lacrossews, sizeof(r_device));
+      memcpy(&cfg->devices[117], &lightwave_rf, sizeof(r_device));
+      memcpy(&cfg->devices[118], &markisol, sizeof(r_device));
+      memcpy(&cfg->devices[119], &martec_mplcd, sizeof(r_device));
+      memcpy(&cfg->devices[120], &maverick_et73, sizeof(r_device));
+      memcpy(&cfg->devices[121], &maverick_et73x, sizeof(r_device));
+      memcpy(&cfg->devices[122], &mebus433, sizeof(r_device));
+      memcpy(&cfg->devices[123], &megacode, sizeof(r_device));
+      memcpy(&cfg->devices[124], &six_sc_two_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[125], &missil_ml0757, sizeof(r_device));
+      memcpy(&cfg->devices[126], &neptune_r900, sizeof(r_device));
+      memcpy(&cfg->devices[127], &new_template, sizeof(r_device));
+      memcpy(&cfg->devices[128], &newkaku, sizeof(r_device));
+      memcpy(&cfg->devices[129], &nexa, sizeof(r_device));
+      memcpy(&cfg->devices[130], &nexus, sizeof(r_device));
+      memcpy(&cfg->devices[131], &nexus_sauna, sizeof(r_device));
+      memcpy(&cfg->devices[132], &nice_flor_s, sizeof(r_device));
+      memcpy(&cfg->devices[133], &norgo, sizeof(r_device));
+      memcpy(&cfg->devices[134], &oil_standard_ask, sizeof(r_device));
+      memcpy(&cfg->devices[135], &omni, sizeof(r_device));
+      memcpy(&cfg->devices[136], &opus_xt300, sizeof(r_device));
+      memcpy(&cfg->devices[137], &oregon_scientific, sizeof(r_device));
+      memcpy(&cfg->devices[138], &oregon_scientific_sl109h, sizeof(r_device));
+      memcpy(&cfg->devices[139], &oregon_scientific_v1, sizeof(r_device));
+      memcpy(&cfg->devices[140], &oria_wa150km, sizeof(r_device));
+      memcpy(&cfg->devices[141], &philips_aj3650, sizeof(r_device));
+      memcpy(&cfg->devices[142], &philips_aj7010, sizeof(r_device));
+      memcpy(&cfg->devices[143], &proflame2, sizeof(r_device));
+      memcpy(&cfg->devices[144], &prologue, sizeof(r_device));
+      memcpy(&cfg->devices[145], &proove, sizeof(r_device));
+      memcpy(&cfg->devices[146], &quhwa, sizeof(r_device));
+      memcpy(&cfg->devices[147], &radiohead_ask, sizeof(r_device));
+      memcpy(&cfg->devices[148], &sensible_living, sizeof(r_device));
+      memcpy(&cfg->devices[149], &rainpoint, sizeof(r_device));
+      memcpy(&cfg->devices[150], &rainpoint_hcs012arf, sizeof(r_device));
+      memcpy(&cfg->devices[151], &regency_fan, sizeof(r_device));
+      memcpy(&cfg->devices[152], &revolt_nc5462, sizeof(r_device));
+      memcpy(&cfg->devices[153], &revolt_zx7717, sizeof(r_device));
+      memcpy(&cfg->devices[154], &rftech, sizeof(r_device));
+      memcpy(&cfg->devices[155], &rfxmeter, sizeof(r_device));
+      memcpy(&cfg->devices[156], &risco_agility, sizeof(r_device));
+      memcpy(&cfg->devices[157], &rosstech_dcu706, sizeof(r_device));
+      memcpy(&cfg->devices[158], &rubicson, sizeof(r_device));
+      memcpy(&cfg->devices[159], &rubicson_48659, sizeof(r_device));
+      memcpy(&cfg->devices[160], &rubicson_pool_48942, sizeof(r_device));
+      memcpy(&cfg->devices[161], &s3318p, sizeof(r_device));
+      memcpy(&cfg->devices[162], &sainlogic_sa8, sizeof(r_device));
+      memcpy(&cfg->devices[163], &schou_72543_rain, sizeof(r_device));
+      memcpy(&cfg->devices[164], &schraeder, sizeof(r_device));
+      memcpy(&cfg->devices[165], &schrader_EG53MA4, sizeof(r_device));
+      memcpy(&cfg->devices[166], &schrader_SMD3MA4, sizeof(r_device));
+      memcpy(&cfg->devices[167], &schrader_NIS315G3, sizeof(r_device));
+      memcpy(&cfg->devices[168], &schrader_MRXBC5A4, sizeof(r_device));
+      memcpy(&cfg->devices[169], &scmplus, sizeof(r_device));
+      memcpy(&cfg->devices[170], &secplus_v1, sizeof(r_device));
+      memcpy(&cfg->devices[171], &shenzhen_wale_wl_th6r, sizeof(r_device));
+      memcpy(&cfg->devices[172], &siemens_5wy72xx_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[173], &silvercrest, sizeof(r_device));
+      memcpy(&cfg->devices[174], &ss_sensor, sizeof(r_device));
+      memcpy(&cfg->devices[175], &skylink_motion, sizeof(r_device));
+      memcpy(&cfg->devices[176], &smoke_gs558, sizeof(r_device));
+      memcpy(&cfg->devices[177], &solight_te44, sizeof(r_device));
+      memcpy(&cfg->devices[178], &somfy_rts, sizeof(r_device));
+      memcpy(&cfg->devices[179], &springfield, sizeof(r_device));
+      memcpy(&cfg->devices[180], &telldus_ft0385r, sizeof(r_device));
+      memcpy(&cfg->devices[181], &tfa_30_3221, sizeof(r_device));
+      memcpy(&cfg->devices[182], &tfa_drop_303233, sizeof(r_device));
+      memcpy(&cfg->devices[183], &tfa_pool_thermometer, sizeof(r_device));
+      memcpy(&cfg->devices[184], &tfa_twin_plus_303049, sizeof(r_device));
+      memcpy(&cfg->devices[185], &thermopro_tp11, sizeof(r_device));
+      memcpy(&cfg->devices[186], &thermopro_tp12, sizeof(r_device));
+      memcpy(&cfg->devices[187], &thermopro_tx2, sizeof(r_device));
+      memcpy(&cfg->devices[188], &thermopro_tx2c, sizeof(r_device));
+      memcpy(&cfg->devices[189], &thermor, sizeof(r_device));
+      memcpy(&cfg->devices[190], &thermor_a6n_132tx, sizeof(r_device));
+      memcpy(&cfg->devices[191], &tpms_eezrv, sizeof(r_device));
+      memcpy(&cfg->devices[192], &tmps_gear_hive, sizeof(r_device));
+      memcpy(&cfg->devices[193], &tpms_gm, sizeof(r_device));
+      memcpy(&cfg->devices[194], &tpms_imars_t240, sizeof(r_device));
+      memcpy(&cfg->devices[195], &tpms_jansite_ty468, sizeof(r_device));
+      memcpy(&cfg->devices[196], &tpms_schrader_motorcycle, sizeof(r_device));
+      memcpy(&cfg->devices[197], &tpms_smartire, sizeof(r_device));
+      memcpy(&cfg->devices[198], &tpms_trw_ook, sizeof(r_device));
+      memcpy(&cfg->devices[199], &tpms_tyreguard400, sizeof(r_device));
+      memcpy(&cfg->devices[200], &tr_502msv, sizeof(r_device));
+      memcpy(&cfg->devices[201], &ts_ft002, sizeof(r_device));
+      memcpy(&cfg->devices[202], &ttx201, sizeof(r_device));
+      memcpy(&cfg->devices[203], &twogig_key2e, sizeof(r_device));
+      memcpy(&cfg->devices[204], &universalfanctrl, sizeof(r_device));
+      memcpy(&cfg->devices[205], &vaillant_vrt340f, sizeof(r_device));
+      memcpy(&cfg->devices[206], &vauno_en8822c, sizeof(r_device));
+      memcpy(&cfg->devices[207], &visonic_powercode, sizeof(r_device));
+      memcpy(&cfg->devices[208], &vivint, sizeof(r_device));
+      memcpy(&cfg->devices[209], &wallarge_cltx001, sizeof(r_device));
+      memcpy(&cfg->devices[210], &watchman_plus, sizeof(r_device));
+      memcpy(&cfg->devices[211], &watts_thermostat, sizeof(r_device));
+      memcpy(&cfg->devices[212], &watts_wfht_rf, sizeof(r_device));
+      memcpy(&cfg->devices[213], &waveman, sizeof(r_device));
+      memcpy(&cfg->devices[214], &wec2103, sizeof(r_device));
+      memcpy(&cfg->devices[215], &wg_pb12v1, sizeof(r_device));
+      memcpy(&cfg->devices[216], &ws2032, sizeof(r_device));
+      memcpy(&cfg->devices[217], &wssensor, sizeof(r_device));
+      memcpy(&cfg->devices[218], &wt1024, sizeof(r_device));
+      memcpy(&cfg->devices[219], &wt450, sizeof(r_device));
+      memcpy(&cfg->devices[220], &X10_RF, sizeof(r_device));
+      memcpy(&cfg->devices[221], &x10_sec, sizeof(r_device));
+      memcpy(&cfg->devices[222], &yale_hsa, sizeof(r_device));
+      memcpy(&cfg->devices[223], &evology_c2_301, sizeof(r_device));
+      memcpy(&cfg->devices[224], &came_top432, sizeof(r_device));
     } else {
-      memcpy(&cfg->devices[i++], &ambientweather_wh31e, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &ant_antplus, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &arad_ms_meter, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &archos_tbh, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &arexx_ml, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &badger_orion, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &bresser_5in1, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &bresser_6in1, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &bresser_7in1, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &bresser_leakage, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &bresser_lightning, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &cavius, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &ced7000, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &chamberlain_cwpirc, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &current_cost, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &danfoss_CFR, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &directv, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &ecodhome, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &efergy_e2_classic, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &efergy_optical, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &emax, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &emontx, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &esic_emt7110, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_WH25, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_WH51, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_303151, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wh1080_fsk, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wh31l, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wh45, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wh46, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wh55, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_wn34, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_ws80, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &fineoffset_ws90, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &flowis, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &ge_coloreffects, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &geo_minim, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &hcs200_fsk, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &holman_ws5029pcm, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &holman_ws5029pwm, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &hondaremote, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &honeywell_cm921, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &honeywell_wdb_fsk, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &ikea_sparsnas, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &inkbird_ith20r, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &insteon, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_breezepro, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_r1, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_th3, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_tx31u, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_tx34, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_tx29, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_tx35, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &lacrosse_wr1, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &m_bus_mode_c_t, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &m_bus_mode_c_t_downlink, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &m_bus_mode_s, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &m_bus_mode_r, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &m_bus_mode_f, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &marlec_solar, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &maverick_xr30, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &mueller_hotrod, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &oil_smart, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &oil_standard, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &oil_watchman, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &oil_watchman_advanced, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &rojaflex, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &sharp_spc775, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &simplisafe_gen3, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &somfy_iohc, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &srsmith_pool_srs_2c_tx, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &steelmate, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_14_1504_v2, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_303196, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tfa_marbella, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tp28b, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tp828b, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &thermopro_tp829b, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_abarth124, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_ave, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_bmw, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_bmwg3, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_citroen, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_elantra2012, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_ford, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_hyundai_vdo, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_jansite, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_jansite_solar, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_kia, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_nissan, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_pmv107j, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_porsche, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_renault, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_renault_0435r, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_toyota, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &tpms_truck, sizeof(r_device));
-      memcpy(&cfg->devices[i++], &vevor_7in1, sizeof(r_device));
+      memcpy(&cfg->devices[0], &alps_fwb1u545_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[1], &ambientweather_wh31e, sizeof(r_device));
+      memcpy(&cfg->devices[2], &ant_antplus, sizeof(r_device));
+      memcpy(&cfg->devices[3], &apator_metra_eitn30, sizeof(r_device));
+      memcpy(&cfg->devices[4], &apator_metra_erm30, sizeof(r_device));
+      memcpy(&cfg->devices[5], &arad_ms_meter, sizeof(r_device));
+      memcpy(&cfg->devices[6], &archos_tbh, sizeof(r_device));
+      memcpy(&cfg->devices[7], &arexx_ml, sizeof(r_device));
+      memcpy(&cfg->devices[8], &orion_endpoint, sizeof(r_device));
+      memcpy(&cfg->devices[9], &orion_endpoint_2020, sizeof(r_device));
+      memcpy(&cfg->devices[10], &badger_orion, sizeof(r_device));
+      memcpy(&cfg->devices[11], &bresser_5in1, sizeof(r_device));
+      memcpy(&cfg->devices[12], &bresser_6in1, sizeof(r_device));
+      memcpy(&cfg->devices[13], &bresser_7in1, sizeof(r_device));
+      memcpy(&cfg->devices[14], &bresser_garden, sizeof(r_device));
+      memcpy(&cfg->devices[15], &bresser_leakage, sizeof(r_device));
+      memcpy(&cfg->devices[16], &bresser_lightning, sizeof(r_device));
+      memcpy(&cfg->devices[17], &cavius, sizeof(r_device));
+      memcpy(&cfg->devices[18], &cavius_door, sizeof(r_device));
+      memcpy(&cfg->devices[19], &ced7000, sizeof(r_device));
+      memcpy(&cfg->devices[20], &chamberlain_cwpirc, sizeof(r_device));
+      memcpy(&cfg->devices[21], &continental_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[22], &honda_keyfob, sizeof(r_device));
+      memcpy(&cfg->devices[23], &ctt_life_power_hybrid, sizeof(r_device));
+      memcpy(&cfg->devices[24], &current_cost, sizeof(r_device));
+      memcpy(&cfg->devices[25], &danfoss_CFR, sizeof(r_device));
+      memcpy(&cfg->devices[26], &deltadore_x3d, sizeof(r_device));
+      memcpy(&cfg->devices[27], &directv, sizeof(r_device));
+      memcpy(&cfg->devices[28], &eberle_instat868r1, sizeof(r_device));
+      memcpy(&cfg->devices[29], &ec3k, sizeof(r_device));
+      memcpy(&cfg->devices[30], &ecodhome, sizeof(r_device));
+      memcpy(&cfg->devices[31], &ecoeye, sizeof(r_device));
+      memcpy(&cfg->devices[32], &efergy_e2_classic, sizeof(r_device));
+      memcpy(&cfg->devices[33], &efergy_optical, sizeof(r_device));
+      memcpy(&cfg->devices[34], &elero, sizeof(r_device));
+      memcpy(&cfg->devices[35], &elsner_solexa, sizeof(r_device));
+      memcpy(&cfg->devices[36], &elster_power_meter, sizeof(r_device));
+      memcpy(&cfg->devices[37], &elster_power_meter2, sizeof(r_device));
+      memcpy(&cfg->devices[38], &emax, sizeof(r_device));
+      memcpy(&cfg->devices[39], &emontx, sizeof(r_device));
+      memcpy(&cfg->devices[40], &en2058, sizeof(r_device));
+      memcpy(&cfg->devices[41], &esic_emt7110, sizeof(r_device));
+      memcpy(&cfg->devices[42], &fineoffset_WH25, sizeof(r_device));
+      memcpy(&cfg->devices[43], &fineoffset_WH51, sizeof(r_device));
+      memcpy(&cfg->devices[44], &tfa_303151, sizeof(r_device));
+      memcpy(&cfg->devices[45], &fineoffset_wh1080_fsk, sizeof(r_device));
+      memcpy(&cfg->devices[46], &fineoffset_wh31l, sizeof(r_device));
+      memcpy(&cfg->devices[47], &fineoffset_wh43, sizeof(r_device));
+      memcpy(&cfg->devices[48], &fineoffset_wh45, sizeof(r_device));
+      memcpy(&cfg->devices[49], &fineoffset_wh46, sizeof(r_device));
+      memcpy(&cfg->devices[50], &fineoffset_wh52, sizeof(r_device));
+      memcpy(&cfg->devices[51], &fineoffset_wh55, sizeof(r_device));
+      memcpy(&cfg->devices[52], &fineoffset_wn34, sizeof(r_device));
+      memcpy(&cfg->devices[53], &fineoffset_ws80, sizeof(r_device));
+      memcpy(&cfg->devices[54], &fineoffset_ws85, sizeof(r_device));
+      memcpy(&cfg->devices[55], &fineoffset_ws90, sizeof(r_device));
+      memcpy(&cfg->devices[56], &flowis, sizeof(r_device));
+      memcpy(&cfg->devices[57], &fsl_scoreboard, sizeof(r_device));
+      memcpy(&cfg->devices[58], &ge_coloreffects, sizeof(r_device));
+      memcpy(&cfg->devices[59], &geo_minim, sizeof(r_device));
+      memcpy(&cfg->devices[60], &govee_h5059, sizeof(r_device));
+      memcpy(&cfg->devices[61], &govee_h5112, sizeof(r_device));
+      memcpy(&cfg->devices[62], &govee_h5310, sizeof(r_device));
+      memcpy(&cfg->devices[63], &gridstream96, sizeof(r_device));
+      memcpy(&cfg->devices[64], &gridstream192, sizeof(r_device));
+      memcpy(&cfg->devices[65], &gridstream384, sizeof(r_device));
+      memcpy(&cfg->devices[66], &hanwell_ml4000, sizeof(r_device));
+      memcpy(&cfg->devices[67], &hcs200_fsk, sizeof(r_device));
+      memcpy(&cfg->devices[68], &holman_ws5029pcm, sizeof(r_device));
+      memcpy(&cfg->devices[69], &holman_ws5029pwm, sizeof(r_device));
+      memcpy(&cfg->devices[70], &hondaremote, sizeof(r_device));
+      memcpy(&cfg->devices[71], &honeywell_cm921, sizeof(r_device));
+      memcpy(&cfg->devices[72], &honeywell_wdb_fsk, sizeof(r_device));
+      memcpy(&cfg->devices[73], &ikea_sparsnas, sizeof(r_device));
+      memcpy(&cfg->devices[74], &inkbird_ith20r, sizeof(r_device));
+      memcpy(&cfg->devices[75], &insteon, sizeof(r_device));
+      memcpy(&cfg->devices[76], &lacrosse_breezepro, sizeof(r_device));
+      memcpy(&cfg->devices[77], &lacrosse_r1, sizeof(r_device));
+      memcpy(&cfg->devices[78], &lacrosse_th3, sizeof(r_device));
+      memcpy(&cfg->devices[79], &lacrosse_tx22uit, sizeof(r_device));
+      memcpy(&cfg->devices[80], &lacrosse_tx31u, sizeof(r_device));
+      memcpy(&cfg->devices[81], &lacrosse_tx34, sizeof(r_device));
+      memcpy(&cfg->devices[82], &lacrosse_tx29, sizeof(r_device));
+      memcpy(&cfg->devices[83], &lacrosse_tx35, sizeof(r_device));
+      memcpy(&cfg->devices[84], &lacrosse_wr1, sizeof(r_device));
+      memcpy(&cfg->devices[85], &lacrosse_ws6868_tx232th, sizeof(r_device));
+      memcpy(&cfg->devices[86], &lacrosse_ws6868_tx231rw, sizeof(r_device));
+      memcpy(&cfg->devices[87], &m_bus_mode_c_t, sizeof(r_device));
+      memcpy(&cfg->devices[88], &m_bus_mode_c_t_downlink, sizeof(r_device));
+      memcpy(&cfg->devices[89], &m_bus_mode_s, sizeof(r_device));
+      memcpy(&cfg->devices[90], &m_bus_mode_r, sizeof(r_device));
+      memcpy(&cfg->devices[91], &m_bus_mode_f, sizeof(r_device));
+      memcpy(&cfg->devices[92], &radian, sizeof(r_device));
+      memcpy(&cfg->devices[93], &marlec_solar, sizeof(r_device));
+      memcpy(&cfg->devices[94], &maverick_xr30, sizeof(r_device));
+      memcpy(&cfg->devices[95], &maverick_xr50, sizeof(r_device));
+      memcpy(&cfg->devices[96], &mcpower_kinetic, sizeof(r_device));
+      memcpy(&cfg->devices[97], &mueller_hotrod, sizeof(r_device));
+      memcpy(&cfg->devices[98], &netatmo_thw, sizeof(r_device));
+      memcpy(&cfg->devices[99], &nidec_car_remote, sizeof(r_device));
+      memcpy(&cfg->devices[100], &oil_smart, sizeof(r_device));
+      memcpy(&cfg->devices[101], &oil_standard, sizeof(r_device));
+      memcpy(&cfg->devices[102], &oil_watchman, sizeof(r_device));
+      memcpy(&cfg->devices[103], &oil_watchman_advanced, sizeof(r_device));
+      memcpy(&cfg->devices[104], &opel_mokka, sizeof(r_device));
+      memcpy(&cfg->devices[105], &oregon_scientific_wmr500, sizeof(r_device));
+      memcpy(&cfg->devices[106], &quinetic, sizeof(r_device));
+      memcpy(&cfg->devices[107], &rfm69_lowpowerlab_moteino, sizeof(r_device));
+      memcpy(&cfg->devices[108], &rojaflex, sizeof(r_device));
+      memcpy(&cfg->devices[109], &sharp_spc775, sizeof(r_device));
+      memcpy(&cfg->devices[110], &silver_spring_mesh, sizeof(r_device));
+      memcpy(&cfg->devices[111], &simplisafe_gen3, sizeof(r_device));
+      memcpy(&cfg->devices[112], &somfy_iohc, sizeof(r_device));
+      memcpy(&cfg->devices[113], &srsmith_pool_srs_2c_tx, sizeof(r_device));
+      memcpy(&cfg->devices[114], &steelmate, sizeof(r_device));
+      memcpy(&cfg->devices[115], &tfa_14_1504_v2, sizeof(r_device));
+      memcpy(&cfg->devices[116], &tfa_303196, sizeof(r_device));
+      memcpy(&cfg->devices[117], &tfa_30_390x, sizeof(r_device));
+      memcpy(&cfg->devices[118], &tfa_marbella, sizeof(r_device));
+      memcpy(&cfg->devices[119], &thermopro_tp211b, sizeof(r_device));
+      memcpy(&cfg->devices[120], &thermopro_tp28b, sizeof(r_device));
+      memcpy(&cfg->devices[121], &thermopro_tp828b, sizeof(r_device));
+      memcpy(&cfg->devices[122], &thermopro_tp829b, sizeof(r_device));
+      memcpy(&cfg->devices[123], &thermopro_tp86xb, sizeof(r_device));
+      memcpy(&cfg->devices[124], &thermopro_tx7b, sizeof(r_device));
+      memcpy(&cfg->devices[125], &tpms_abarth124, sizeof(r_device));
+      memcpy(&cfg->devices[126], &tpms_airpuxem, sizeof(r_device));
+      memcpy(&cfg->devices[127], &tpms_ave, sizeof(r_device));
+      memcpy(&cfg->devices[128], &tpms_bmw, sizeof(r_device));
+      memcpy(&cfg->devices[129], &tpms_bmwg3, sizeof(r_device));
+      memcpy(&cfg->devices[130], &tpms_citroen, sizeof(r_device));
+      memcpy(&cfg->devices[131], &tpms_elantra2012, sizeof(r_device));
+      memcpy(&cfg->devices[132], &tpms_ford, sizeof(r_device));
+      memcpy(&cfg->devices[133], &tpms_honda, sizeof(r_device));
+      memcpy(&cfg->devices[134], &tpms_hyundai_vdo, sizeof(r_device));
+      memcpy(&cfg->devices[135], &tpms_jansite, sizeof(r_device));
+      memcpy(&cfg->devices[136], &tpms_jansite_solar, sizeof(r_device));
+      memcpy(&cfg->devices[137], &tpms_jansite_ty588, sizeof(r_device));
+      memcpy(&cfg->devices[138], &tpms_jeep, sizeof(r_device));
+      memcpy(&cfg->devices[139], &tpms_kia, sizeof(r_device));
+      memcpy(&cfg->devices[140], &tpms_mercedes_benz, sizeof(r_device));
+      memcpy(&cfg->devices[141], &tpms_nissan, sizeof(r_device));
+      memcpy(&cfg->devices[142], &tpms_pmv107j, sizeof(r_device));
+      memcpy(&cfg->devices[143], &tpms_porsche, sizeof(r_device));
+      memcpy(&cfg->devices[144], &tpms_renault, sizeof(r_device));
+      memcpy(&cfg->devices[145], &tpms_renault_0435r, sizeof(r_device));
+      memcpy(&cfg->devices[146], &tpms_sefis_m3, sizeof(r_device));
+      memcpy(&cfg->devices[147], &tpms_toyota, sizeof(r_device));
+      memcpy(&cfg->devices[148], &tpms_truck, sizeof(r_device));
+      memcpy(&cfg->devices[149], &tpms_trw_fsk, sizeof(r_device));
+      memcpy(&cfg->devices[150], &typhur_sync_gold, sizeof(r_device));
+      memcpy(&cfg->devices[151], &vevor_7in1, sizeof(r_device));
+      memcpy(&cfg->devices[152], &watts_vision, sizeof(r_device));
     }
 
     // end of fragment
 
 #else
-    memcpy(&cfg->devices[i++], &lacrosse_tx141x, sizeof(r_device));
+#  define DECL(name) &name,
+    static r_device const* const myDevices[] = {DEVICES};
+#  undef DECL
+    for (size_t i = 0; i < NUMOFDEVICES; ++i) {
+      memcpy(&cfg->devices[i], myDevices[i], sizeof(r_device));
+    }
 #endif
 
-#ifdef RTL_FLEX
-    // This option is non-functional. The flex decoder is too resource intensive
-    // for an ESP32, and needs the ESP32 stack set to 32768 in order for the
-    // flex_callback to execute Tested with
-    // -DRTL_FLEX="n=Sonoff-PIR3-RF,m=OOK_PWM,s=300,l=860,r=7492,g=868,t=50,y=0,bits>=24,repeats>=5,invert,get=@0:{20}:id,get=@20:{4}:motion:[0:true
-    // ],unique"
-
-    r_device* flex_device;
-    flex_device = flex_create_device(RTL_FLEX);
-    memcpy(&cfg->devices[i++], &flex_device, sizeof(r_device));
-    register_protocol(cfg, flex_device, NULL);
-    alogprintfLn(LOG_INFO, "Flex Decoder enabled: %s", RTL_FLEX);
-#endif
-
-    cfg->num_r_devices = i;
 // logprintfLn(LOG_INFO, "Location of r_devices: %p", (void *)&r_devices);
 // logprintfLn(LOG_INFO, "Location of cfg: %p", (void *)&cfg);
 // logprintfLn(LOG_INFO, "cfg size %d", sizeof(r_cfg_t));
@@ -392,10 +507,10 @@ void rtlSetup() {
 #endif
 #ifdef RTL_DEBUG
     cfg->verbosity = RTL_DEBUG + 5; // 0=normal, 1=verbose, 2=verbose decoders,
-        // 3=debug decoders, 4=trace decoding.
+    // 3=debug decoders, 4=trace decoding.
 #else
     cfg->verbosity = rtlVerbose; // 0=normal, 1=verbose, 2=verbose decoders,
-        // 3=debug decoders, 4=trace decoding.
+    // 3=debug decoders, 4=trace decoding.
 #endif
 
 #ifdef MEMORY_DEBUG
@@ -473,6 +588,10 @@ void _setCallback(rtl_433_ESPCallBack callback, char* messageBuffer,
   cfg->bufferSize = bufferSize;
 }
 
+void _setRawPulsesCallback(rtl_433_raw_pulse_cb callback) {
+  rawPulsesCallback.store(callback, std::memory_order_release);
+}
+
 void _setDebug(int debug) {
   rtlVerbose = debug;
   logprintfLn(LOG_INFO, "Setting rtl_433 debug to: %d", rtlVerbose);
@@ -487,7 +606,7 @@ void rtl_433_DecoderTask(void* pvParameters) {
     xQueueReceive(rtl_433_Queue, &rtl_pulses, portMAX_DELAY);
     // logprintfLn(LOG_DEBUG, "rtl_433_DecoderTask signal received");
 #ifdef MEMORY_DEBUG
-    unsigned long signalProcessingStart = micros();
+    uint32_t signalProcessingStart = micros();
 #endif
 
 #ifdef RAW_SIGNAL_DEBUG
@@ -513,6 +632,12 @@ void rtl_433_DecoderTask(void* pvParameters) {
       events = run_ook_demods(&cfg->demod->r_devs, rtl_pulses);
     } else {
       events = run_fsk_demods(&cfg->demod->r_devs, rtl_pulses);
+    }
+    rtl_433_raw_pulse_cb rawCallback =
+        rawPulsesCallback.load(std::memory_order_acquire);
+    if (rawCallback != nullptr) {
+      rawCallback(rtl_pulses->pulse, rtl_pulses->gap, rtl_pulses->num_pulses,
+                  rtl_pulses->signalDuration, rtl_pulses->signalRssi);
     }
     if (events == 0) {
 #ifdef RTL_ANALYZER

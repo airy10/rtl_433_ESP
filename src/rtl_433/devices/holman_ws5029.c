@@ -169,7 +169,7 @@ static int holman_ws5029pcm_decode(r_device *decoder, bitbuffer_t *bitbuffer)
                 "rain_mm",          "Total rainfall",   DATA_FORMAT, "%.1f mm",   DATA_DOUBLE, rain_mm,
                 "wind_avg_km_h",    "Wind avg speed",   DATA_FORMAT, "%.1f km/h", DATA_DOUBLE, speed_kmh,
                 "wind_dir_deg",     "Wind Direction",   DATA_INT,                              direction_deg,
-                "uv",               "UV Index",         DATA_FORMAT, "%u",        DATA_INT,    uv_index,
+                "uvi",              "UV Index",         DATA_FORMAT, "%.0f",      DATA_DOUBLE, (double)uv_index,
                 "light_lux",        "Lux",              DATA_FORMAT, "%u",        DATA_INT,    light_lux,
                 "counter",          "Counter",          DATA_FORMAT, "%u",        DATA_INT,    counter,
                 "battery_ok",       "battery",          DATA_FORMAT, "%u",        DATA_INT,    !battery_low,
@@ -192,7 +192,7 @@ static char const *const output_fields[] = {
         "rain_mm",
         "wind_avg_km_h",
         "wind_dir_deg",
-        "uv",
+        "uvi",
         "light_lux",
         "counter",
         "mic",
@@ -320,6 +320,26 @@ static int holman_ws5029pwm_decode(r_device *decoder, bitbuffer_t *bitbuffer)
 r_device const holman_ws5029pwm = {
         .name        = "Holman Industries iWeather WS5029 weather station (older PWM)",
         .modulation  = FSK_PULSE_PWM,
+        .short_width = 488,
+        .long_width  = 976,
+        .reset_limit = 6000,
+        .gap_limit   = 2000,
+        .decode_fn   = &holman_ws5029pwm_decode,
+        .fields      = output_fields,
+};
+
+/**
+OOK variant of the PWM protocol above, sold as BIOWIN / 2measure / Bioterm
+No. 270208 weather station, see issue #1476.
+
+Identical frame layout and checksum, but OOK modulated instead of FSK.
+To get the raw data:
+
+    rtl_433 -f 433.92M -X "n=Holman-WS5029-OOK,m=OOK_PWM,s=488,l=976,g=2000,r=6000,invert"
+*/
+r_device const holman_ws5029pwm_ook = {
+        .name        = "Holman Industries iWeather WS5029 weather station (older PWM, OOK), BIOWIN 270208",
+        .modulation  = OOK_PULSE_PWM,
         .short_width = 488,
         .long_width  = 976,
         .reset_limit = 6000,

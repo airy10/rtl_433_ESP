@@ -62,6 +62,14 @@ static int waveman_callback(r_device *decoder, bitbuffer_t *bitbuffer)
                 | ((b[i] & 0x01) ? 0x00 : 0x08);
     }
 
+    // Only 0xe (ON) and 0x6 (OFF) are valid states in real captures; any other
+    // value was previously still accepted and reported as "OFF", silently
+    // letting 14 of 16 possible nibble values through as a false decode.
+    if (nb[2] != 0xe && nb[2] != 0x6) {
+        decoder_logf(decoder, 2, __func__, "implausible state nibble: %x", nb[2]);
+        return DECODE_FAIL_SANITY;
+    }
+
     id_str[0] = 'A' + nb[0];
     id_str[1] = '\0';
 
@@ -71,7 +79,7 @@ static int waveman_callback(r_device *decoder, bitbuffer_t *bitbuffer)
             "id",       "",     DATA_STRING,    id_str,
             "channel",  "",     DATA_INT,       (nb[1] >> 2) + 1,
             "button",   "",     DATA_INT,       (nb[1] & 3) + 1,
-            "state",    "",     DATA_STRING,    (nb[2] == 0xe) ? "on" : "off",
+            "state",    "",     DATA_STRING,    (nb[2] == 0xe) ? "ON" : "OFF",
             NULL);
     /* clang-format on */
     decoder_output_data(decoder, data);
@@ -96,7 +104,7 @@ r_device const waveman = {
         .gap_limit   = 1400,
         .reset_limit = 12000,
         .sync_width  = 0,   // No sync bit used
-        .tolerance   = 200, // us
+        .tolerance   = 200,
         .decode_fn   = &waveman_callback,
         .fields      = output_fields,
 };
