@@ -386,9 +386,10 @@
     DECL(X10_RF)                          \
     DECL(x10_sec)                         \
     DECL(yale_hsa)                        \
+    DECL(came_top432)                     \
+    DECL(evology_c2_301)                  \
     /* Add new decoders here. */
-    DECL(came_top432)                   \
-    DECL(evology_c2_301)                   \
+
 #  define NUMOF_OOK_DEVICES 225
 #  define NUMOF_FSK_DEVICES 153
 
