@@ -708,6 +708,7 @@ void rtl_433_DecoderTask(void* pvParameters) {
                 "duration", "",   DATA_INT,     rtl_pulses->signalDuration,
                 "rssi", "", DATA_INT,     rtl_pulses->signalRssi,
                 "pulses", "",     DATA_INT,     rtl_pulses->num_pulses,
+                "time_ms", "",    DATA_INT,     (int)rtl_433_millis(),
 //                "train", "",      DATA_INT,     _actualPulseTrain,
 //                "messageCount", "", DATA_INT,   messageCount,
 //                "_enabledReceiver", "", DATA_INT, _enabledReceiver,
